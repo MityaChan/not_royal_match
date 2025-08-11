@@ -1,0 +1,1227 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>Спаси Монарха — матч‑3 + спасение</title>
+  <meta name="description" content="Портретная HTML5‑игра: снизу матч‑3, сверху монарх в опасности. Красивая, отзывчивая, без зависимостей." />
+  <style>
+    :root{
+      --bg:#0f1222;
+      --bg-panel:#171a33;
+      --ink:#e6e8ff;
+      --muted:#a9afd6;
+      --accent:#7c9bff;
+      --accent-2:#f6b76b;
+      --danger:#ff5a7a;
+      --success:#4ee1a0;
+      --gold:#ffd166;
+      --shadow:rgba(0,0,0,.35);
+      --glass:rgba(255,255,255,.06);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;}
+    body{
+      margin:0;
+      background:
+        radial-gradient(1200px 600px at 80% -10%, #233 0%, rgba(0,0,0,0) 70%),
+        radial-gradient(1400px 900px at 0% 0%, #19203b 0%, rgba(0,0,0,0) 70%),
+        linear-gradient(180deg, #0b0e1a 0%, #10132a 100%);
+      color:var(--ink);
+      font: 15px/1.35 "Inter", system-ui, -apple-system, "Segoe UI", Roboto, Arial, "Noto Sans", "Apple Color Emoji","Segoe UI Emoji", "Segoe UI Symbol";
+      overflow:hidden;
+      touch-action:none; /* предотвращает прокрутку при свайпах на мобильных */
+    }
+    .wrap{
+      height:100dvh; /* корректная единица для мобильных */
+      display:grid;
+      grid-template-rows: 56px 1fr;
+      gap:10px;
+      padding:10px;
+    }
+    header{
+      display:flex; align-items:center; justify-content:space-between;
+      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+      border:1px solid rgba(255,255,255,.08);
+      border-radius:14px;
+      padding:8px 10px;
+      box-shadow: 0 12px 30px var(--shadow);
+      backdrop-filter: blur(8px);
+    }
+    .title{
+      display:flex; align-items:center; gap:10px;
+      font-weight:800; letter-spacing: .2px;
+      text-shadow: 0 2px 8px rgba(0,0,0,.3);
+      user-select:none;
+    }
+    .crown{
+      width:28px; height:28px; display:inline-grid; place-items:center;
+      background: radial-gradient(circle at 50% 30%, #fff7, #fff0),
+                  linear-gradient(180deg, #ffdf7e, #f0b030);
+      box-shadow: inset 0 -2px 4px rgba(0,0,0,.2), 0 4px 10px rgba(0,0,0,.4);
+      border-radius:6px;
+      clip-path: polygon(8% 65%, 25% 35%, 35% 65%, 50% 28%, 64% 65%, 75% 35%, 92% 65%, 92% 86%, 8% 86%);
+    }
+    .controls{
+      display:flex; gap:8px; align-items:center;
+    }
+    .btn{
+      appearance:none; border:0; cursor:pointer; color:var(--ink);
+      padding:8px 12px; border-radius:10px;
+      background: linear-gradient(180deg, #2a2f59, #1b1f3b);
+      border: 1px solid rgba(255,255,255,.08);
+      box-shadow: 0 6px 14px rgba(0,0,0,.35), inset 0 2px 0 rgba(255,255,255,.08);
+      font-weight:700;
+    }
+    .btn:active{ transform: translateY(1px) scale(.995); }
+    .btn.secondary{
+      background: linear-gradient(180deg, #2a2b35, #1b1c29);
+    }
+    select{
+      appearance:none; background: linear-gradient(180deg, #2a2f59, #1b1f3b);
+      color:var(--ink); border-radius:10px; padding:8px 12px; border:1px solid rgba(255,255,255,.08);
+      font-weight:700;
+      box-shadow: 0 6px 14px rgba(0,0,0,.35), inset 0 2px 0 rgba(255,255,255,.08);
+    }
+
+    .main{
+      display:grid;
+      grid-template-rows: 1fr auto;
+      gap:10px;
+      min-height:0; /* важно: для корректного высчитывания высоты грид-элементов */
+    }
+
+    .panel{
+      position:relative;
+      border-radius:18px;
+      overflow:hidden;
+      border:1px solid rgba(255,255,255,.08);
+      background: radial-gradient(1600px 800px at 80% -10%, rgba(255,255,255,.06), rgba(255,255,255,.02)),
+                  linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,.04));
+      box-shadow: 0 20px 40px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.08);
+      backdrop-filter: blur(10px);
+      min-height:0;
+    }
+
+    .scene{
+      display:grid; grid-template-rows: 1fr; min-height:0;
+    }
+    .board{
+      display:grid; grid-template-rows: 1fr; min-height: 300px;
+    }
+
+    canvas{ width:100%; height:100%; display:block; }
+    .hud{
+      position:absolute; left:10px; right:10px; top:10px; display:flex; gap:8px; align-items:center;
+      z-index:5; pointer-events:none;
+    }
+    .meter{
+      flex:1; height:14px; border-radius:999px; overflow:hidden;
+      background: rgba(255,255,255,.1);
+      border:1px solid rgba(255,255,255,.12);
+      box-shadow: inset 0 1px 2px rgba(0,0,0,.5);
+    }
+    .meter > .fill{
+      height:100%; width:40%; background: linear-gradient(90deg, #ff6f91, #ffa26f);
+      box-shadow: 0 4px 12px rgba(255,100,120,.45);
+      transition: width .25s ease-out;
+    }
+    .hud .pill{
+      pointer-events:auto;
+      padding:6px 10px; border-radius:999px; background: rgba(0,0,0,.35);
+      border:1px solid rgba(255,255,255,.12); backdrop-filter: blur(6px);
+      font-weight:800; font-feature-settings: "tnum" 1; letter-spacing:.3px;
+      display:flex; gap:6px; align-items:center;
+    }
+    .hud .pill .dot{ width:10px; height:10px; border-radius:999px; background: var(--success); box-shadow:0 0 12px var(--success); }
+    .hud .pill.red .dot{ background: var(--danger); box-shadow:0 0 12px var(--danger); }
+
+    .overlay{
+      position:absolute; inset:0; display:none; place-items:center; background: rgba(0,0,0,.55);
+      z-index:10;
+    }
+    .overlay.show{ display:grid; }
+    .dialog{
+      width:min(92%, 520px); border-radius:18px; padding:24px; background: linear-gradient(180deg, #1b1f3e, #12152a);
+      border:1px solid rgba(255,255,255,.12);
+      box-shadow: 0 30px 60px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.08);
+      text-align:center;
+    }
+    .big{
+      font-size:26px; font-weight:900; margin:0 0 8px; letter-spacing:.4px;
+      text-shadow: 0 4px 18px rgba(0,0,0,.5);
+    }
+    .sub{ color: var(--muted); margin-bottom:16px; }
+    .dialog .actions{ display:flex; flex-wrap:wrap; gap:10px; justify-content:center; }
+    .pill-btn{
+      cursor:pointer; padding:10px 16px; border-radius:999px; font-weight:800; border:0;
+      background: linear-gradient(180deg, #2b2f59, #1c1f3b); color:var(--ink);
+      border:1px solid rgba(255,255,255,.08);
+      box-shadow: 0 10px 18px rgba(0,0,0,.45), inset 0 2px 0 rgba(255,255,255,.06);
+    }
+    .pill-btn:active{ transform: translateY(1px); }
+    .pill-btn.gold{ background: linear-gradient(180deg, #ffd166, #d8a52e); color:#2c2100; }
+
+    .legend{
+      position:absolute; right:10px; bottom:10px; left:10px; display:flex; gap:6px; flex-wrap:wrap; align-items:center; justify-content:center;
+      z-index:3; pointer-events:none;
+    }
+    .tag{
+      pointer-events:auto;
+      background: rgba(0,0,0,.35); border:1px solid rgba(255,255,255,.12);
+      backdrop-filter: blur(6px);
+      padding:6px 10px; border-radius:999px; font-weight:700; color:var(--muted);
+      display:flex; gap:6px; align-items:center;
+    }
+    .tag .swatch{ width:12px; height:12px; border-radius:3px; }
+    .tag strong{ color:var(--ink); }
+
+    @media (min-aspect-ratio: 10/16){
+      .main{ grid-template-rows: 1fr min(52vh, 680px); }
+    }
+    @media (max-aspect-ratio: 10/16){
+      .main{ grid-template-rows: 1fr min(60vh, 760px); }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="title">
+        <div class="crown"></div>
+        <div>СПАСИ МОНАРХА</div>
+      </div>
+      <div class="controls">
+        <select id="mode">
+          <option value="lava">🌋 Режим: Лава</option>
+          <option value="dragon">🐉 Режим: Дракон</option>
+          <option value="ceiling">🧱 Режим: Потолок</option>
+        </select>
+        <button class="btn" id="btnRestart">Перезапуск</button>
+        <button class="btn secondary" id="btnPause">Пауза</button>
+      </div>
+    </header>
+
+    <div class="main">
+      <div class="panel scene">
+        <div class="hud">
+          <div class="pill" id="comboPill"><span class="dot"></span> Комбо: <span id="comboVal">x1</span></div>
+          <div class="meter"><div class="fill" id="dangerFill"></div></div>
+          <div class="pill red">Опасность</div>
+        </div>
+        <canvas id="scene"></canvas>
+        <div class="legend">
+          <div class="tag"><div class="swatch" style="background:#ff6f91"></div> <span>Сброс опасности за тайл</span> <strong>−1</strong></div>
+          <div class="tag"><div class="swatch" style="background:#4ee1a0"></div> <span>Бонус каскада</span> <strong>+20%</strong></div>
+          <div class="tag"><div class="swatch" style="background:#7c9bff"></div> <span>Комбо-множитель</span> <strong>до ×5</strong></div>
+        </div>
+      </div>
+
+      <div class="panel board">
+        <canvas id="board"></canvas>
+      </div>
+    </div>
+
+    <div class="overlay" id="overlay">
+      <div class="dialog">
+        <div class="big" id="overlayTitle">Победа!</div>
+        <div class="sub" id="overlaySub">Монарх спасён. Сыграем ещё?</div>
+        <div class="actions">
+          <button class="pill-btn gold" id="btnAgain">Играть снова</button>
+          <button class="pill-btn" id="btnContinue">Продолжить</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+<script>
+/*  ──────────────────────────────────────────────────────────────────────────────
+    СПАСИ МОНАРХА — оригинальный матч‑3 прототип с верхней сценой‑опасностью.
+    Никаких торговых марок/ассетов третьих лиц. Всё рисуется Canvas'ом.
+    Управление:
+      • ПК: клик/перетаскивание соседних фишек.
+      • Мобильный: тач/свайп соседних фишек.
+    Цель:
+      • Собирай группы ≥3 снизу, чтобы уменьшать «Опасность» сверху (лава/дракон/потолок).
+      • Выигрыш — когда шкала опасности опускается до нуля.
+      • Поражение — когда шкала заполняется.
+    Технически:
+      • Полностью в одном HTML, без зависимостей.
+      • Портрет, адаптив, ретина‑скейлинг, pointer events, шейдинги/частицы.
+    ──────────────────────────────────────────────────────────────────────────── */
+
+// ────────────────────────── Утилиты ──────────────────────────
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+const rnd = (a=1, b=0) => Math.random() * (a - b) + b;
+const easeOut = t => 1 - Math.pow(1 - t, 3);
+const easeInOut = t => t<.5 ? 4*t*t*t : 1 - Math.pow(-2*t+2,3)/2;
+let idCounter=1; const uid=()=>idCounter++;
+
+function hsl(h, s=70, l=50, a=1){ return `hsla(${h} ${s}% ${l}% / ${a})`; }
+
+// ─────────────────────── Глобальные параметры ───────────────────────
+const CONFIG = {
+  rows: 8,
+  cols: 8,
+  tileTypes: 6,
+  gravity: 1600, // px/s^2
+  swapSpeed: 12, // клеток в секунду
+  clearShrinkTime: .22,
+  fallSpeed: 14, // клеток в секунду (начальная скорость падения)
+  spawnDelayPerRow: .03,
+  baseHazardRise: .040, // в долях шкалы/сек
+  hazardPerTile: .012,   // сколько СНИЖАЕМ опасность за очищенный тайл
+  cascadeBonus: .20,     // +20% эффективности за каждую последующую волну в каскаде
+  maxComboMultiplier: 5,
+  shuffleIfNoMoves: true,
+  portraitBoardScale: .94, // доля высоты нижней панели отведённая под поле
+};
+
+// ────────────────────── Канвасы и размеры ──────────────────────
+const sceneCanvas = document.getElementById('scene');
+const boardCanvas = document.getElementById('board');
+const sceneCtx = sceneCanvas.getContext('2d');
+const boardCtx = boardCanvas.getContext('2d', { alpha: true });
+
+let DPR = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+let viewport = { w: 0, h: 0 };
+let boardRectPx = { x:0, y:0, w:0, h:0, cell: 0 };
+
+function resize(){
+  DPR = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+  const scenePanel = sceneCanvas.parentElement.getBoundingClientRect();
+  const boardPanel = boardCanvas.parentElement.getBoundingClientRect();
+
+  // SCENE
+  sceneCanvas.width = Math.floor(scenePanel.width * DPR);
+  sceneCanvas.height = Math.floor(scenePanel.height * DPR);
+  sceneCanvas.style.width = scenePanel.width + "px";
+  sceneCanvas.style.height = scenePanel.height + "px";
+
+  // BOARD
+  boardCanvas.width = Math.floor(boardPanel.width * DPR);
+  boardCanvas.height = Math.floor(boardPanel.height * DPR);
+  boardCanvas.style.width = boardPanel.width + "px";
+  boardCanvas.style.height = boardPanel.height + "px";
+
+  // Рассчитываем прямоугольник поля с отступами, чтобы сохранить квадратные клетки.
+  const cols = CONFIG.cols, rows = CONFIG.rows;
+  const padding = 16 * DPR;
+  const usableW = boardCanvas.width - padding*2;
+  const usableH = boardCanvas.height - padding*2;
+  const cell = Math.floor(Math.min(usableW/cols, usableH/rows));
+  const boardW = cell * cols;
+  const boardH = cell * rows;
+  boardRectPx = {
+    x: Math.floor((boardCanvas.width - boardW)/2),
+    y: Math.floor((boardCanvas.height - boardH)/2),
+    w: boardW, h: boardH, cell
+  };
+}
+window.addEventListener('resize', resize);
+
+// ────────────────────────── Состояния игры ──────────────────────────
+const STATE = {
+  RUN: 'run',
+  PAUSE: 'pause',
+  WIN: 'win',
+  LOSE: 'lose',
+};
+let gameState = STATE.RUN;
+
+// ────────────────────────── Частицы ──────────────────────────
+class ParticleSystem{
+  constructor(){ this.ps = []; }
+  burst(x,y,color, count=18){
+    for(let i=0;i<count;i++){
+      this.ps.push({
+        x, y,
+        vx: (rnd(-1,1))* (60 + 60*Math.random()),
+        vy: (rnd(-1, -2)) * (60 + 60*Math.random()),
+        life: .7 + Math.random()*.5,
+        t: 0,
+        size: 2 + Math.random()*3,
+        color,
+        rot: Math.random()*Math.PI,
+        vr: rnd(-3,3),
+      });
+    }
+  }
+  update(dt){
+    this.ps = this.ps.filter(p => (p.t += dt) < p.life);
+    for(const p of this.ps){
+      p.vy += 800 * dt;
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.rot += p.vr * dt;
+    }
+  }
+  draw(ctx){
+    ctx.save();
+    for(const p of this.ps){
+      const a = 1 - (p.t / p.life);
+      ctx.globalAlpha = a;
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot);
+      ctx.fillStyle = p.color;
+      ctx.fillRect(-p.size/2, -p.size/2, p.size, p.size);
+      ctx.setTransform(1,0,0,1,0,0);
+    }
+    ctx.restore();
+    ctx.globalAlpha = 1;
+  }
+}
+const particles = new ParticleSystem();
+
+// ────────────────────────── Доска (матч‑3) ──────────────────────────
+class Tile{
+  constructor(type, r, c){
+    this.id = uid();
+    this.type = type;
+    this.r = r; this.c = c;
+    this.x = c; this.y = r; // позиция для анимации (в клетках)
+    this.vy = 0;
+    this.clearing = false;
+    this.clearT = 0;
+  }
+}
+
+class Board{
+  constructor(rows, cols, types){
+    this.rows = rows;
+    this.cols = cols;
+    this.types = types;
+    this.grid = [];
+    this.animating = false;
+    this.selected = null; // {r,c}
+    this.swapping = null; // анимация обмена
+    this.cascadeChain = 0;
+    this.combo = 1;
+    this.comboDecay = 0;
+    this._initGrid();
+  }
+
+  _initGrid(){
+    this.grid = Array.from({length:this.rows}, (_,r)=>
+      Array.from({length:this.cols}, (_,c)=> new Tile(this._randTypeAvoid(r,c), r, c))
+    );
+    // гарантируем наличие ходов
+    if(!this.hasAnyMoves()){
+      this.shuffle();
+    }
+  }
+  _randType(){ return (Math.random()*this.types|0); }
+  _randTypeAvoid(r,c){
+    // избегаем моментальных совпадений 3+
+    let t;
+    do{
+      t = this._randType();
+    } while(
+      (c>=2 && this.grid[r]?.[c-1]?.type===t && this.grid[r]?.[c-2]?.type===t) ||
+      (r>=2 && this.grid[r-1]?.[c]?.type===t && this.grid[r-2]?.[c]?.type===t)
+    );
+    return t;
+  }
+
+  tileAt(r,c){ if(r<0||c<0||r>=this.rows||c>=this.cols) return null; return this.grid[r][c]; }
+
+  *allTiles(){
+    for(let r=0;r<this.rows;r++) for(let c=0;c<this.cols;c++) yield this.grid[r][c];
+  }
+
+  draw(ctx){
+    const {x:bx, y:by, cell} = boardRectPx;
+    ctx.save();
+    ctx.translate(bx, by);
+
+    // фон поля
+    drawBoardBack(ctx, this.rows, this.cols, cell);
+
+    // сортируем по y для корректных перекрытий падающих тайлов
+    const tiles = [...this.allTiles()].sort((a,b)=> (a.y - b.y) || (a.x - b.x));
+    for(const t of tiles){
+      drawGem(ctx, t, cell);
+    }
+
+    // обводка/рамка
+    ctx.strokeStyle = "rgba(255,255,255,.12)";
+    ctx.lineWidth = Math.max(1, cell*0.03);
+    ctx.strokeRect(0,0, this.cols*cell, this.rows*cell);
+
+    // выделение выбранной клетки
+    if(this.selected){
+      const {r,c} = this.selected;
+      ctx.save();
+      ctx.globalAlpha=.25;
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(c*cell, r*cell, cell, cell);
+      ctx.restore();
+    }
+
+    ctx.restore();
+  }
+
+  screenToCell(px, py){
+    const {x:bx,y:by,cell,w,h} = boardRectPx;
+    const c = Math.floor((px*DPR - bx) / cell);
+    const r = Math.floor((py*DPR - by) / cell);
+    if(r<0||c<0||r>=this.rows||c>=this.cols) return null;
+    return {r,c};
+  }
+
+  pointerDown(cell){
+    if(this.animating) return;
+    this.selected = cell;
+  }
+  pointerMove(cell){
+    if(this.animating || !this.selected || !cell) return;
+    const dr = cell.r - this.selected.r;
+    const dc = cell.c - this.selected.c;
+    if(Math.abs(dr)+Math.abs(dc) === 1){
+      this.trySwap(this.selected, cell);
+      this.selected = null;
+    }
+  }
+  pointerUp(cell){
+    if(this.animating) return;
+    this.selected = null;
+  }
+
+  trySwap(a,b){
+    if(!a||!b) return;
+    const ta = this.tileAt(a.r,a.c);
+    const tb = this.tileAt(b.r,b.c);
+    if(!ta||!tb) return;
+
+    this.animating = true;
+    const self = this;
+    const swapAnim = {
+      a:ta, b:tb,
+      ax:ta.x, ay:ta.y,
+      bx:tb.x, by:tb.y,
+      t:0, done:false,
+      duration: 1/CONFIG.swapSpeed
+    };
+    this.swapping = swapAnim;
+
+    const commitSwap = ()=>{
+      // поменять в сетке
+      [this.grid[ta.r][ta.c], this.grid[tb.r][tb.c]] = [tb, ta];
+      // и их логические координаты
+      [ta.r, tb.r] = [tb.r, ta.r];
+      [ta.c, tb.c] = [tb.c, ta.c];
+      [ta.x, tb.x] = [tb.x, ta.x];
+      [ta.y, tb.y] = [tb.y, ta.y];
+    };
+
+    // сразу поменяем логически, а анимацию сделаем к новым позициям
+    commitSwap();
+
+    // проверить совпадения
+    const matches = this.findMatches();
+    if(matches.length === 0){
+      // откатить
+      setTimeout(()=>{
+        // swap back
+        [this.grid[ta.r][ta.c], this.grid[tb.r][tb.c]] = [tb, ta];
+        [ta.r, tb.r] = [tb.r, ta.r];
+        [ta.c, tb.c] = [tb.c, ta.c];
+        [ta.x, tb.x] = [tb.x, ta.x];
+        [ta.y, tb.y] = [tb.y, ta.y];
+        this.animating = false;
+        this.swapping = null;
+      }, 110); // небольшой дабл‑клик‑фидбек
+      return;
+    }
+
+    // есть совпадения — запускаем каскад
+    this.cascadeChain = 0;
+    this.resolveCascade(matches);
+  }
+
+  findMatches(){
+    const matches = [];
+    // горизонтальные
+    for(let r=0;r<this.rows;r++){
+      let runType = null, runStart = 0, runLen = 0;
+      for(let c=0;c<this.cols;c++){
+        const t = this.grid[r][c];
+        if(t.type === runType) runLen++;
+        else{
+          if(runLen>=3) matches.push({dir:'h', r, c0:runStart, c1:c-1, tiles: Array.from({length:runLen},(_,i)=>this.grid[r][runStart+i])});
+          runType = t.type; runStart = c; runLen = 1;
+        }
+      }
+      if(runLen>=3) matches.push({dir:'h', r, c0:runStart, c1:this.cols-1, tiles: Array.from({length:runLen},(_,i)=>this.grid[r][runStart+i])});
+    }
+    // вертикальные
+    for(let c=0;c<this.cols;c++){
+      let runType = null, runStart = 0, runLen = 0;
+      for(let r=0;r<this.rows;r++){
+        const t = this.grid[r][c];
+        if(t.type === runType) runLen++;
+        else{
+          if(runLen>=3) matches.push({dir:'v', c, r0:runStart, r1:r-1, tiles: Array.from({length:runLen},(_,i)=>this.grid[runStart+i][c])});
+          runType = t.type; runStart = r; runLen = 1;
+        }
+      }
+      if(runLen>=3) matches.push({dir:'v', c, r0:runStart, r1:this.rows-1, tiles: Array.from({length:runLen},(_,i)=>this.grid[runStart+i][c])});
+    }
+    // уникализируем тайлы
+    const uniq = new Set();
+    const result = [];
+    for(const m of matches){
+      const group = [];
+      for(const t of m.tiles){
+        if(!uniq.has(t.id)){ uniq.add(t.id); group.push(t); }
+      }
+      if(group.length>=3) result.push({dir:m.dir, tiles:group});
+    }
+    return result;
+  }
+
+  hasAnyMoves(){
+    // ищем возможный обмен, который даст матч (простая проверка соседних пар)
+    for(let r=0;r<this.rows;r++) for(let c=0;c<this.cols;c++){
+      const t = this.grid[r][c];
+      const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
+      for(const [dr,dc] of dirs){
+        const r2=r+dr, c2=c+dc;
+        if(r2<0||c2<0||r2>=this.rows||c2>=this.cols) continue;
+        const u = this.grid[r2][c2];
+        // swap virtually
+        [t.type, u.type] = [u.type, t.type];
+        const has = this._hasMatchAt(r,c) || this._hasMatchAt(r2,c2);
+        [t.type, u.type] = [u.type, t.type];
+        if(has) return true;
+      }
+    }
+    return false;
+  }
+  _hasMatchAt(r,c){
+    const t = this.grid[r][c]; const type = t.type;
+    // горизонталь
+    let cnt=1, cc=c-1; while(cc>=0 && this.grid[r][cc].type===type) {cnt++;cc--;}
+    cc=c+1; while(cc<this.cols && this.grid[r][cc].type===type) {cnt++;cc++;}
+    if(cnt>=3) return true;
+    // вертикаль
+    cnt=1; let rr=r-1; while(rr>=0 && this.grid[rr][c].type===type) {cnt++;rr--;}
+    rr=r+1; while(rr<this.rows && this.grid[rr][c].type===type) {cnt++;rr++;}
+    return cnt>=3;
+  }
+
+  shuffle(){
+    // лёгкая перетасовка до тех пор, пока есть ходы
+    let flat = [...this.allTiles()];
+    for(let i=flat.length-1;i>0;i--){
+      const j = (Math.random()*(i+1)|0);
+      [flat[i].type, flat[j].type] = [flat[j].type, flat[i].type];
+    }
+    if(!this.hasAnyMoves()) this.shuffle();
+  }
+
+  resolveCascade(initialMatches){
+    const board = this;
+    let wave = initialMatches;
+    const loop = ()=>{
+      if(!wave || wave.length===0){
+        // конец каскада
+        board.animating = false;
+        board.swapping = null;
+        board.cascadeChain = 0;
+        board.comboDecay = 2.5; // через время комбо обратно к x1
+        return;
+      }
+      board.cascadeChain++;
+      board.handleClear(wave);
+      setTimeout(()=>{
+        board.applyGravityAndSpawn(()=>{
+          // следующий поиск
+          const next = board.findMatches();
+          if(next.length>0) wave = next; else wave = null;
+          loop();
+        });
+      }, 180);
+    };
+    loop();
+  }
+
+  handleClear(matches){
+    const byColumn = new Set();
+    let cleared = 0;
+    for(const m of matches){
+      for(const t of m.tiles){
+        if(t.clearing) continue;
+        t.clearing = true; t.clearT = 0;
+        byColumn.add(t.c);
+        cleared++;
+        // частицы
+        const {cell,x:bx,y:by} = boardRectPx;
+        const cx = bx + (t.c+0.5)*cell;
+        const cy = by + (t.r+0.5)*cell;
+        particles.burst(cx, cy, gemColor(t.type, 0.9), 14);
+      }
+    }
+    // повысим комбо
+    this.combo = clamp(this.combo + .35, 1, CONFIG.maxComboMultiplier);
+    document.getElementById('comboVal').textContent = "x"+this.combo.toFixed(1).replace(".0","");
+    // уменьшаем опасность
+    const cascadeFactor = 1 + (this.cascadeChain-1)*CONFIG.cascadeBonus;
+    const effectivePerTile = CONFIG.hazardPerTile * cascadeFactor * this.combo;
+    hazard?.onTilesCleared(cleared, Array.from(byColumn), effectivePerTile);
+  }
+
+  applyGravityAndSpawn(done){
+    const {rows, cols} = this;
+    const fallPromises = [];
+    // удаляем ясные клетки: превращаем в "дыры", потом смещаем
+    for(let c=0;c<cols;c++){
+      let writeRow = rows-1;
+      for(let r=rows-1; r>=0; r--){
+        const t = this.grid[r][c];
+        if(t.clearing) continue;
+        if(writeRow !== r){
+          this.grid[writeRow][c] = t;
+          t.r = writeRow;
+          writeRow--;
+        } else {
+          writeRow--;
+        }
+      }
+      // заполнение новыми
+      for(let r=writeRow; r>=0; r--){
+        const nt = new Tile(this._randType(), r, c);
+        nt.y = r - 8; // прилет сверху
+        this.grid[r][c] = nt;
+      }
+    }
+
+    // Анимация падения/спавна
+    const duration = 1/CONFIG.fallSpeed;
+    const animTicks = 16; // шагов интерполяции
+    const perTick = duration/animTicks;
+
+    let steps = 0;
+    const fallTimer = setInterval(()=>{
+      let any = false;
+      for(const t of this.allTiles()){
+        const ty = t.r;
+        const dy = ty - t.y;
+        if(Math.abs(dy) > 0.01){
+          t.y = lerp(t.y, ty, .6);
+          any = true;
+        } else {
+          t.y = ty;
+        }
+        if(t.clearing){
+          t.clearT += perTick;
+          if(t.clearT >= CONFIG.clearShrinkTime){
+            // уже удалены
+            t.clearing = false;
+          }
+        }
+      }
+      steps++;
+      if(!any || steps>animTicks+6){
+        clearInterval(fallTimer);
+        done && done();
+      }
+    }, perTick*1000);
+  }
+}
+
+// ─────────────────────── Рендер камней и поля ───────────────────────
+const gemHues = [8, 220, 120, 50, 280, 180]; // оранж, синий, зелёный, жёлтый, фиолет, бирюз
+function gemColor(type, a=1){
+  const hue = gemHues[type % gemHues.length];
+  return `hsla(${hue} 80% 55% / ${a})`;
+}
+
+function drawGem(ctx, t, cell){
+  const px = (t.c + 0.5) * cell;
+  const py = (t.y + 0.5) * cell;
+  const baseSize = cell*0.82;
+  const shrink = t.clearing ? (1 - clamp(t.clearT/CONFIG.clearShrinkTime, 0, 1)) : 1;
+  const size = baseSize * shrink;
+
+  ctx.save();
+  ctx.translate(px, py);
+
+  // тень
+  ctx.shadowColor = "rgba(0,0,0,.45)";
+  ctx.shadowBlur = cell*0.06;
+  ctx.shadowOffsetY = cell*0.04;
+
+  // корпус — "драгоценный камень" с объёмной фаской
+  const hue = gemHues[t.type % gemHues.length];
+  const grad = ctx.createRadialGradient(-size*0.2, -size*0.25, size*0.1, 0,0, size*0.62);
+  grad.addColorStop(0, `hsla(${hue} 85% 70% / 1)`);
+  grad.addColorStop(1, `hsla(${hue} 80% 40% / 1)`);
+  ctx.fillStyle = grad;
+
+  // ромб
+  const s = size/2;
+  ctx.beginPath();
+  ctx.moveTo(0, -s);
+  ctx.lineTo(s, 0);
+  ctx.lineTo(0, s);
+  ctx.lineTo(-s, 0);
+  ctx.closePath();
+  ctx.fill();
+
+  // бликовая грань
+  ctx.globalCompositeOperation = "lighter";
+  ctx.fillStyle = "rgba(255,255,255,.25)";
+  ctx.beginPath();
+  ctx.moveTo(0, -s);
+  ctx.lineTo(s*0.9, -s*0.08);
+  ctx.lineTo(0, -s*0.2);
+  ctx.closePath();
+  ctx.fill();
+  ctx.globalCompositeOperation = "source-over";
+
+  // отблеск‑точка
+  ctx.fillStyle = "rgba(255,255,255,.6)";
+  ctx.beginPath();
+  ctx.arc(-s*0.25, -s*0.25, s*0.10, 0, Math.PI*2);
+  ctx.fill();
+
+  ctx.restore();
+}
+
+function drawBoardBack(ctx, rows, cols, cell){
+  // плитка‑сеточка с лёгким объёмом
+  const w = cols*cell, h = rows*cell;
+  const grad = ctx.createLinearGradient(0,0,0,h);
+  grad.addColorStop(0, "rgba(255,255,255,.05)");
+  grad.addColorStop(1, "rgba(255,255,255,.02)");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0,0,w,h);
+
+  ctx.save();
+  ctx.globalAlpha=.25;
+  ctx.strokeStyle="rgba(255,255,255,.12)";
+  ctx.lineWidth = Math.max(1, cell*0.02);
+  for(let r=1;r<rows;r++){
+    const y=r*cell;
+    ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke();
+  }
+  for(let c=1;c<cols;c++){
+    const x=c*cell;
+    ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,h); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+// ────────────────────────── Опасности/сцены ──────────────────────────
+class HazardBase{
+  constructor(){ this.level = .6; this.lossRate = CONFIG.baseHazardRise; this.state='run'; }
+  update(dt){
+    if(gameState!==STATE.RUN) return;
+    this.level += this.lossRate * dt;
+    if(this.level>=1){ this.level=1; onLose(); }
+  }
+  reduce(amount){ this.level = clamp(this.level - amount, 0, 1); if(this.level<=0) onWin(); }
+  onTilesCleared(count, columns, perTileEffective){ this.reduce(count * perTileEffective); }
+  draw(ctx, w, h){}
+  name(){ return "Опасность"; }
+}
+class LavaHazard extends HazardBase{
+  constructor(){ super(); this.bubbles=[]; this.drains=[]; this.waveT=0; }
+  name(){ return "Лава"; }
+  onTilesCleared(count, columns, perTileEffective){
+    // усиливаем отвод по колонкам, где были совпадения
+    this.reduce(count * perTileEffective * 1.0);
+    const now = performance.now();
+    for(const c of columns){
+      this.drains.push({ t: now, col: c, life: 1000 });
+    }
+  }
+  update(dt){
+    super.update(dt);
+    this.waveT += dt;
+    // очищаем устаревшие дренажи
+    const now = performance.now();
+    this.drains = this.drains.filter(d => now - d.t < d.life);
+    // пузырьки
+    if(Math.random()<.06){
+      this.bubbles.push({
+        x: rnd(0.05, 0.95), y: this.level - rnd(0.0, 0.1),
+        r: rnd(2,5), t:0, life: rnd(.8,1.6)
+      });
+    }
+    for(const b of this.bubbles){
+      b.t += dt; b.y -= dt*.05; b.x += Math.sin(b.t*2)*.0008;
+    }
+    this.bubbles = this.bubbles.filter(b => b.t<b.life);
+  }
+  draw(ctx, w, h){
+    // фон замка
+    drawBackdrop(ctx, w, h);
+
+    // король на платформе
+    const platformY = h*0.22;
+    drawKing(ctx, w*0.5, platformY, h*0.12);
+
+    // уровень лавы снизу
+    const lvlPix = h * this.level;
+    const lavaTop = h - lvlPix;
+
+    // потоки‑дренажи из колонок
+    for(const d of this.drains){
+      const x = (boardRectPx.x + (d.col+0.5)*boardRectPx.cell) / boardCanvas.width * w;
+      drawDrainStream(ctx, x, lavaTop-6, 40, 0.9);
+    }
+
+    // текстурированная лава
+    drawLava(ctx, 0, lavaTop, w, h-lavaTop, this.waveT);
+
+    // шкала опасности
+    updateDangerUI(this.level);
+  }
+}
+
+class DragonHazard extends HazardBase{
+  constructor(){ super(); this.progress=.35; this.speed = .12; }
+  name(){ return "Дракон"; }
+  update(dt){
+    if(gameState!==STATE.RUN) return;
+    this.progress += this.speed*dt;
+    this.level = clamp(this.progress, 0, 1);
+    if(this.level>=1) onLose();
+  }
+  onTilesCleared(count, columns, perTileEffective){
+    const push = count * perTileEffective * 0.9;
+    this.progress = clamp(this.progress - push, 0, 1);
+    this.level = this.progress;
+  }
+  draw(ctx, w, h){
+    drawBackdrop(ctx, w, h);
+    const y = h*0.22;
+    drawKing(ctx, w*0.2, y, h*0.12);
+    // дракон слева направо
+    const x = lerp(-w*0.2, w*0.5, this.progress);
+    drawDragon(ctx, x, y+20, h*0.18);
+    updateDangerUI(this.level);
+  }
+}
+
+class CeilingHazard extends HazardBase{
+  constructor(){ super(); this.ceiling = .25; this.speed=.08; }
+  name(){ return "Потолок"; }
+  update(dt){
+    if(gameState!==STATE.RUN) return;
+    this.ceiling += this.speed*dt;
+    this.level = clamp(this.ceiling, 0, .98);
+    if(this.level>=.98) onLose();
+  }
+  onTilesCleared(count, columns, perTileEffective){
+    const raise = count * perTileEffective * 1.1;
+    this.ceiling = clamp(this.ceiling - raise, 0, .98);
+    this.level = this.ceiling;
+  }
+  draw(ctx, w, h){
+    drawBackdrop(ctx, w, h);
+    const ceilY = h * this.ceiling;
+    // опускающаяся плита
+    ctx.fillStyle = "rgba(200,205,230,.15)";
+    ctx.fillRect(0, 0, w, ceilY);
+    ctx.strokeStyle = "rgba(255,255,255,.25)";
+    ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0,ceilY); ctx.lineTo(w,ceilY); ctx.stroke();
+    drawKing(ctx, w*0.5, ceilY + h*0.12, h*0.12);
+    updateDangerUI(this.level);
+  }
+}
+
+// ──────────────── Рисование короля/лавы/дракона ────────────────
+function drawBackdrop(ctx, w, h){
+  // Башни и небо
+  const sky = ctx.createLinearGradient(0,0,0,h);
+  sky.addColorStop(0, "#0e1226");
+  sky.addColorStop(1, "#141833");
+  ctx.fillStyle = sky; ctx.fillRect(0,0,w,h);
+
+  // далёкие горы/замок
+  ctx.fillStyle = "rgba(255,255,255,.05)";
+  const y0 = h*0.5;
+  ctx.beginPath();
+  ctx.moveTo(0, y0);
+  for(let x=0;x<=w;x+=w/16){
+    const y = y0 - Math.sin(x/w*Math.PI*2)*h*0.035 - h*0.02;
+    ctx.lineTo(x,y);
+  }
+  ctx.lineTo(w, h); ctx.lineTo(0, h); ctx.closePath(); ctx.fill();
+
+  // башни
+  const tower = (cx, top, sc)=>{
+    ctx.save(); ctx.translate(cx, top); ctx.scale(sc, sc);
+    ctx.fillStyle = "rgba(220,230,255,.10)";
+    ctx.fillRect(-18, 0, 36, 120);
+    ctx.fillRect(-26, -14, 52, 14);
+    for(let i=-18;i<=18;i+=12){ ctx.fillRect(i-2, -24, 4, 10); }
+    ctx.restore();
+  };
+  tower(w*0.18, h*0.18, 1.2);
+  tower(w*0.82, h*0.22, 1.0);
+}
+
+function drawKing(ctx, x, y, size){
+  ctx.save(); ctx.translate(x,y);
+
+  // тень
+  ctx.fillStyle = "rgba(0,0,0,.35)"; ctx.beginPath(); ctx.ellipse(0, size*.72, size*.66, size*.18, 0, 0, Math.PI*2); ctx.fill();
+
+  // тело
+  const robeGrad = ctx.createLinearGradient(0, -size*.1, 0, size*.6);
+  robeGrad.addColorStop(0, "#3b3f8f"); robeGrad.addColorStop(1, "#23285f");
+  ctx.fillStyle = robeGrad; roundRect(ctx, -size*.35, -size*.1, size*.7, size*.9, size*.2); ctx.fill();
+
+  // воротник золото
+  ctx.fillStyle = "#f0c862";
+  roundRect(ctx, -size*.3, -size*.2, size*.6, size*.28, size*.12);
+  ctx.fill();
+
+  // лицо
+  ctx.fillStyle = "#f6d3b1"; roundRect(ctx, -size*.23, -size*.55, size*.46, size*.42, size*.12); ctx.fill();
+  // глаза
+  ctx.fillStyle = "#1b2048"; ctx.beginPath(); ctx.arc(-size*.08, -size*.42, size*.04, 0, Math.PI*2); ctx.arc(size*.08, -size*.42, size*.04, 0, Math.PI*2); ctx.fill();
+  // усы
+  ctx.strokeStyle = "#b98a60"; ctx.lineWidth = size*.045; ctx.lineCap = "round";
+  ctx.beginPath(); ctx.moveTo(-size*.14, -size*.34); ctx.lineTo(-size*.02, -size*.34);
+  ctx.moveTo(size*.02, -size*.34); ctx.lineTo(size*.14, -size*.34);
+  ctx.stroke();
+
+  // корона
+  ctx.fillStyle = "#ffd166";
+  ctx.beginPath();
+  ctx.moveTo(-size*.20, -size*.60);
+  ctx.lineTo(-size*.06, -size*.80);
+  ctx.lineTo(0, -size*.62);
+  ctx.lineTo(size*.06, -size*.80);
+  ctx.lineTo(size*.20, -size*.60);
+  ctx.closePath(); ctx.fill();
+  ctx.strokeStyle="rgba(0,0,0,.2)"; ctx.lineWidth=1; ctx.stroke();
+
+  ctx.restore();
+}
+
+function roundRect(ctx, x, y, w, h, r){
+  ctx.beginPath();
+  ctx.moveTo(x+r, y);
+  ctx.arcTo(x+w, y, x+w, y+h, r);
+  ctx.arcTo(x+w, y+h, x, y+h, r);
+  ctx.arcTo(x, y+h, x, y, r);
+  ctx.arcTo(x, y, x+w, y, r);
+  ctx.closePath();
+}
+
+function drawLava(ctx, x, y, w, h, t){
+  // тело лавы
+  const lavaGrad = ctx.createLinearGradient(0, y, 0, y+h);
+  lavaGrad.addColorStop(0, "rgba(255,120,80,.98)");
+  lavaGrad.addColorStop(.6, "rgba(240,70,50,.98)");
+  lavaGrad.addColorStop(1, "rgba(80,20,20,.98)");
+  ctx.fillStyle = lavaGrad;
+  ctx.fillRect(x, y, w, h);
+
+  // волнистая поверхность
+  ctx.save();
+  ctx.globalAlpha = .9;
+  ctx.fillStyle = "rgba(255,180,80,.9)";
+  ctx.beginPath();
+  const base = y+8;
+  ctx.moveTo(0, base);
+  for(let i=0;i<=w;i+=12){
+    const wave = Math.sin((i*0.012 + t*4))*6 + Math.sin((i*0.022 - t*3))*4;
+    ctx.lineTo(i, base + wave);
+  }
+  ctx.lineTo(w, y-40); ctx.lineTo(0, y-40); ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+
+  // пузырьки
+  ctx.save();
+  for(const b of hazard.bubbles || []){
+    const px = b.x*w, py = y + b.y*h;
+    ctx.globalAlpha = 0.8*(1 - b.t/b.life);
+    ctx.fillStyle = "rgba(255,230,200,.7)";
+    ctx.beginPath(); ctx.arc(px, py, b.r, 0, Math.PI*2); ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawDrainStream(ctx, x, y, len, alpha){
+  ctx.save();
+  const grad = ctx.createLinearGradient(0,y,0,y+len);
+  grad.addColorStop(0, "rgba(255,220,140,"+alpha+")");
+  grad.addColorStop(1, "rgba(255,120,60,0)");
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.moveTo(x-3,y);
+  ctx.lineTo(x+3,y);
+  ctx.lineTo(x, y+len);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawDragon(ctx, x, y, size){
+  ctx.save(); ctx.translate(x,y); ctx.scale(1,1);
+  // тело
+  ctx.fillStyle = "#6bd08f";
+  roundRect(ctx, -size*.4, -size*.15, size*.8, size*.3, size*.15); ctx.fill();
+  // хвост
+  ctx.beginPath(); ctx.moveTo(-size*.4, 0); ctx.quadraticCurveTo(-size*.65, -size*.2, -size*.8, 0); ctx.quadraticCurveTo(-size*.65, size*.18, -size*.4, 0); ctx.closePath(); ctx.fill();
+  // крылья
+  ctx.fillStyle="#4fb87a";
+  ctx.beginPath(); ctx.moveTo(-size*.1, -size*.1); ctx.quadraticCurveTo(size*.1, -size*.5, size*.35, -size*.1); ctx.lineTo(size*.0, -size*.02); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(-size*.2, size*.12); ctx.quadraticCurveTo(size*.0, -size*.35, size*.25, size*.12); ctx.lineTo(-size*.05, size*.18); ctx.closePath(); ctx.fill();
+  // голова
+  ctx.fillStyle="#6bd08f";
+  roundRect(ctx, size*.25, -size*.12, size*.3, size*.18, size*.08); ctx.fill();
+  // глаз
+  ctx.fillStyle="#1b2048";
+  ctx.beginPath(); ctx.arc(size*.46, -size*.02, size*.022, 0, Math.PI*2); ctx.fill();
+  // огонь
+  ctx.fillStyle = "orange";
+  ctx.beginPath(); ctx.moveTo(size*.58, -size*.02); ctx.quadraticCurveTo(size*.7, -size*.16, size*.86, -size*.02);
+  ctx.quadraticCurveTo(size*.7, size*.16, size*.58, -size*.02); ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+
+// ────────────────────────── UI/Оверлеи ──────────────────────────
+const overlay = document.getElementById('overlay');
+const overlayTitle = document.getElementById('overlayTitle');
+const overlaySub = document.getElementById('overlaySub');
+const btnAgain = document.getElementById('btnAgain');
+const btnContinue = document.getElementById('btnContinue');
+const dangerFill = document.getElementById('dangerFill');
+const comboPill = document.getElementById('comboPill');
+
+function showOverlay(title, sub){
+  overlayTitle.textContent = title;
+  overlaySub.textContent = sub;
+  overlay.classList.add('show');
+}
+function hideOverlay(){ overlay.classList.remove('show'); }
+
+function updateDangerUI(level){
+  dangerFill.style.width = (level*100).toFixed(1) + "%";
+  // цветовые переходы
+  const g = Math.max(0, 1 - level*1.2);
+  const r = Math.min(1, level*1.2);
+  dangerFill.style.background = `linear-gradient(90deg, rgba(${255*Math.min(1, r+.2)},${120*g},100,1), rgba(${255},${160*(1-g)},110,1))`;
+}
+
+// ────────────────────────── Игра: цикл ──────────────────────────
+let board = null;
+let hazard = null;
+let lastT = performance.now();
+
+function initGame(mode="lava"){
+  board = new Board(CONFIG.rows, CONFIG.cols, CONFIG.tileTypes);
+  hazard = (mode==="lava") ? new LavaHazard()
+         : (mode==="dragon") ? new DragonHazard()
+         : new CeilingHazard();
+  gameState = STATE.RUN;
+  hideOverlay();
+  document.getElementById('comboVal').textContent = "x1";
+  comboPill.querySelector('.dot').style.background = "var(--success)";
+}
+
+function onWin(){
+  if(gameState!==STATE.RUN) return;
+  gameState = STATE.WIN;
+  comboPill.querySelector('.dot').style.background = "var(--success)";
+  showOverlay("Победа!", "Монарх спасён. Сыграем ещё раз или сменим режим?");
+}
+function onLose(){
+  if(gameState!==STATE.RUN) return;
+  gameState = STATE.LOSE;
+  comboPill.querySelector('.dot').style.background = "var(--danger)";
+  showOverlay("Поражение", "Опасность победила. Попробуем снова?");
+}
+
+function update(dt){
+  if(gameState===STATE.PAUSE) return;
+  hazard?.update(dt);
+
+  // плавное затухание комбо
+  if(board.comboDecay>0){
+    board.comboDecay -= dt;
+    if(board.comboDecay<=0){
+      board.combo = Math.max(1, board.combo - .2);
+      document.getElementById('comboVal').textContent = "x"+board.combo.toFixed(1).replace(".0","");
+      board.comboDecay = board.combo>1 ? 2.5 : 0;
+    }
+  }
+
+  particles.update(dt);
+}
+function render(){
+  // SCENE
+  const w = sceneCanvas.width, h = sceneCanvas.height;
+  sceneCtx.save(); sceneCtx.scale(DPR, DPR);
+  // очищаем под CSS‑масштабирование (мы уже в DPR‑координатах, тогда scale не нужен). Но мы задаём реальные пиксели -> не масштабируем.
+  sceneCtx.setTransform(1,0,0,1,0,0);
+  // Корректный режим: канвас уже в DPR‑пикселях, рисуем напрямую
+  hazard?.draw(sceneCtx, sceneCanvas.width, sceneCanvas.height);
+  sceneCtx.restore();
+
+  // BOARD
+  boardCtx.clearRect(0,0, boardCanvas.width, boardCanvas.height);
+  board.draw(boardCtx);
+
+  // Частицы поверх доски
+  particles.draw(boardCtx);
+}
+
+function loop(now){
+  const dt = Math.min(0.033, (now - lastT)/1000); lastT = now;
+  update(dt);
+  render();
+  requestAnimationFrame(loop);
+}
+
+// ────────────────────────── Ввод ──────────────────────────
+let pointerDown = false;
+boardCanvas.addEventListener('pointerdown', (e)=>{
+  if(gameState!==STATE.RUN) return;
+  pointerDown = true;
+  const rect = boardCanvas.getBoundingClientRect();
+  const cell = board.screenToCell(e.clientX - rect.left, e.clientY - rect.top);
+  if(cell) board.pointerDown(cell);
+});
+boardCanvas.addEventListener('pointermove', (e)=>{
+  if(!pointerDown || gameState!==STATE.RUN) return;
+  const rect = boardCanvas.getBoundingClientRect();
+  const cell = board.screenToCell(e.clientX - rect.left, e.clientY - rect.top);
+  if(cell) board.pointerMove(cell);
+});
+window.addEventListener('pointerup', (e)=>{
+  if(!pointerDown) return; pointerDown=false;
+  const rect = boardCanvas.getBoundingClientRect();
+  const cell = board.screenToCell(e.clientX - rect.left, e.clientY - rect.top);
+  board.pointerUp(cell);
+});
+
+// ────────────────────────── Контролы ──────────────────────────
+document.getElementById('btnRestart').addEventListener('click', ()=> initGame(document.getElementById('mode').value));
+document.getElementById('btnPause').addEventListener('click', ()=>{
+  if(gameState===STATE.RUN){ gameState=STATE.PAUSE; overlayTitle.textContent="Пауза"; overlaySub.textContent="Игра на паузе."; overlay.classList.add('show'); }
+  else if(gameState===STATE.PAUSE){ gameState=STATE.RUN; overlay.classList.remove('show'); }
+});
+btnAgain.addEventListener('click', ()=>{ initGame(document.getElementById('mode').value); });
+btnContinue.addEventListener('click', ()=>{ if(gameState===STATE.PAUSE){ gameState=STATE.RUN; } overlay.classList.remove('show'); });
+document.getElementById('mode').addEventListener('change', e=> initGame(e.target.value));
+
+// ────────────────────────── Старт ──────────────────────────
+resize();
+initGame("lava");
+requestAnimationFrame(loop);
+
+</script>
+</body>
+</html>
